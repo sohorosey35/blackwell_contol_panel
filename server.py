@@ -190,8 +190,244 @@ class MonitorHandler(http.server.SimpleHTTPRequestHandler):
                 'os': os_name
             }
             self.wfile.write(json.dumps(data).encode('utf-8'))
-        else:
-            super().do_GET()
+            return
+
+        models_dir = "/opt/Pinokio/build/api/comfy.git/app/models/"
+
+        if self.path == '/list_model_folders':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            folders = []
+            if os.path.exists(models_dir):
+                for f in os.listdir(models_dir):
+                    p = os.path.join(models_dir, f)
+                    if os.path.isdir(p):
+                        folders.append(f)
+            folders.sort()
+            self.wfile.write(json.dumps(folders).encode('utf-8'))
+            return
+
+        if self.path.startswith('/list_models?'):
+            from urllib.parse import parse_qs, urlparse
+            query = parse_qs(urlparse(self.path).query)
+            folder = query.get('folder', [''])[0]
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            
+            files = []
+            if folder:
+                folder_path = os.path.join(models_dir, folder)
+                # basic security check to prevent directory traversal
+                if os.path.abspath(folder_path).startswith(os.path.abspath(models_dir)) and os.path.isdir(folder_path):
+                    for f in os.listdir(folder_path):
+                        p = os.path.join(folder_path, f)
+                        if os.path.isfile(p):
+                            files.append({"name": f, "size": os.path.getsize(p)})
+            files.sort(key=lambda x: x["name"])
+            self.wfile.write(json.dumps(files).encode('utf-8'))
+            return
+
+        if self.path == '/list_templates':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            
+            target_dir = "/Volumes/mnt/projects/rosey/reference/comfyui/blackwell_rtx_6000/custom_nodes/comfyui_soho_nodes/example_workflows"
+            files = []
+            if os.path.exists(target_dir):
+                for f in os.listdir(target_dir):
+                    if f.startswith('._') or f == '.DS_Store':
+                        continue
+                    p = os.path.join(target_dir, f)
+                    if os.path.isfile(p):
+                        files.append({"name": f, "size": os.path.getsize(p)})
+            files.sort(key=lambda x: x["name"])
+            self.wfile.write(json.dumps(files).encode('utf-8'))
+            return
+
+        super().do_GET()
+
+    def do_POST(self):
+        import urllib.parse
+        if self.path == '/upload_model':
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                folder = urllib.parse.unquote(self.headers.get('x-folder', ''))
+                filename = urllib.parse.unquote(self.headers.get('x-filename', ''))
+                
+                if not folder or not filename:
+                    raise ValueError("Missing folder or filename")
+
+                total, used = get_disk_info()
+                if total > 0:
+                    if (used + content_length) / total > 0.90:
+                        self.send_response(400)
+                        self.send_header('Content-type', 'application/json')
+                        self.end_headers()
+                        self.wfile.write(json.dumps({"success": False, "error": "Disk capacity would exceed 90%"}).encode('utf-8'))
+                        return
+
+                models_dir = "/opt/Pinokio/build/api/comfy.git/app/models/"
+                target_dir = os.path.join(models_dir, folder)
+                if not os.path.abspath(target_dir).startswith(os.path.abspath(models_dir)):
+                    raise ValueError("Invalid folder")
+
+                os.makedirs(target_dir, exist_ok=True)
+                target_path = os.path.join(target_dir, filename)
+
+                with open(target_path, 'wb') as f:
+                    remaining = content_length
+                    while remaining > 0:
+                        chunk = self.rfile.read(min(remaining, 8192 * 1024))
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        remaining -= len(chunk)
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode('utf-8'))
+
+            except Exception as e:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode('utf-8'))
+            return
+
+
+        if self.path == '/queue_deletion':
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_data = self.rfile.read(content_length) if content_length > 0 else b'{}'
+                payload = json.loads(post_data.decode('utf-8'))
+                
+                type_val = payload.get('type', 'model')
+                files = payload.get('files', [])
+                
+                if not files:
+                    raise ValueError("Missing files")
+                    
+                if type_val == 'model':
+                    folder = payload.get('folder')
+                    if not folder:
+                        raise ValueError("Missing folder")
+                    base_dir = "/opt/Pinokio/build/api/comfy.git/app/models/"
+                    target_dir = os.path.join(base_dir, folder)
+                elif type_val == 'template':
+                    target_dir = "/Volumes/mnt/projects/rosey/reference/comfyui/blackwell_rtx_6000/custom_nodes/comfyui_soho_nodes/example_workflows"
+                    base_dir = target_dir
+                else:
+                    raise ValueError("Invalid type")
+                    
+                if not os.path.abspath(target_dir).startswith(os.path.abspath(base_dir)):
+                    raise ValueError("Invalid folder path")
+
+                if type_val == 'template':
+                    script_path = "/opt/Pinokio/build/api/comfy.git/PENDING_TEMPLATE_DELETIONS.sh"
+                else:
+                    script_path = "/opt/Pinokio/build/api/comfy.git/PENDING_MODEL_DELETIONS.sh"
+                
+                if not os.path.exists(script_path):
+                    with open(script_path, 'w', encoding='utf-8') as f:
+                        f.write("#!/bin/bash\n\n")
+                    os.chmod(script_path, 0o755)
+
+                with open(script_path, 'a', encoding='utf-8') as f:
+                    for filename in files:
+                        safe_path = os.path.join(target_dir, filename)
+                        f.write(f'rm "{safe_path}"\n')
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode('utf-8'))
+            except Exception as e:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode('utf-8'))
+            return
+
+        if self.path == '/upload_template':
+            try:
+                content_length = int(self.headers.get('Content-Length', 0))
+                post_data = self.rfile.read(content_length) if content_length > 0 else b'{}'
+
+                import base64
+                import shutil
+                from datetime import datetime
+                
+                payload = json.loads(post_data.decode('utf-8'))
+                json_filename = payload.get('json_filename')
+                json_content = payload.get('json_content')
+                has_image = payload.get('has_image')
+                image_base64 = payload.get('image_base64')
+
+                if not json_filename or not json_filename.endswith('.json'):
+                    raise ValueError("Invalid json filename")
+
+                base_name = json_filename[:-5]
+                image_filename = f"{base_name}.jpg" if has_image else None
+
+                target_dir = "/Volumes/mnt/projects/rosey/reference/comfyui/blackwell_rtx_6000/custom_nodes/comfyui_soho_nodes/example_workflows"
+                backup_dir = "/Volumes/mnt/projects/rosey/reference/comfyui/blackwell_rtx_6000/custom_nodes/comfyui_soho_nodes/example_workflows_bak"
+
+                os.makedirs(target_dir, exist_ok=True)
+                os.makedirs(backup_dir, exist_ok=True)
+
+                target_json_path = os.path.join(target_dir, json_filename)
+                target_image_path = os.path.join(target_dir, image_filename) if has_image else None
+
+                # Backup existing json if needed
+                if os.path.exists(target_json_path):
+                    date_str = datetime.now().strftime("%m_%d_%Y")
+                    idx = 1
+                    while True:
+                        bak_name = f"{base_name}_{date_str}_{idx:02d}.json"
+                        bak_path = os.path.join(backup_dir, bak_name)
+                        if not os.path.exists(bak_path):
+                            break
+                        idx += 1
+                    shutil.copy2(target_json_path, bak_path)
+
+                # Write json
+                with open(target_json_path, 'w', encoding='utf-8') as f:
+                    f.write(json_content)
+
+                # Backup existing image if needed
+                if has_image:
+                    if os.path.exists(target_image_path):
+                        date_str = datetime.now().strftime("%m_%d_%Y")
+                        idx = 1
+                        while True:
+                            bak_name = f"{base_name}_{date_str}_{idx:02d}.jpg"
+                            bak_path = os.path.join(backup_dir, bak_name)
+                            if not os.path.exists(bak_path):
+                                break
+                            idx += 1
+                        shutil.copy2(target_image_path, bak_path)
+                    
+                    with open(target_image_path, 'wb') as f:
+                        f.write(base64.b64decode(image_base64))
+
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": True}).encode('utf-8'))
+
+            except Exception as e:
+                self.send_response(400)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                self.wfile.write(json.dumps({"success": False, "error": str(e)}).encode('utf-8'))
+            return
+            
+        self.send_response(404)
+        self.end_headers()
 
 # Pre-load CPU data
 get_cpu_load()
@@ -201,7 +437,34 @@ class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
 
 if __name__ == '__main__':
     server_address = ('', PORT)
-    httpd = ThreadingHTTPServer(server_address, MonitorHandler)
+    try:
+        httpd = ThreadingHTTPServer(server_address, MonitorHandler)
+    except OSError as e:
+        if e.errno == 98: # Address already in use
+            print(f"Port {PORT} is already in use.")
+            try:
+                output = subprocess.check_output(["ss", "-lptn", f"sport = :{PORT}"], universal_newlines=True)
+                match = re.search(r'pid=(\d+)', output)
+                if match:
+                    pid = match.group(1)
+                    choice = input(f"Process {pid} is using port {PORT}. Do you want to kill it? (y/N): ")
+                    if choice.lower() == 'y':
+                        os.kill(int(pid), 9)
+                        print(f"Killed process {pid}. Starting server...")
+                        time.sleep(1)
+                        httpd = ThreadingHTTPServer(server_address, MonitorHandler)
+                    else:
+                        print("Exiting.")
+                        exit(1)
+                else:
+                    print("Could not determine which process is using the port. Exiting.")
+                    exit(1)
+            except Exception as ex:
+                print(f"Could not kill the process: {ex}")
+                exit(1)
+        else:
+            raise
+
     print(f"System monitor running on port {PORT}")
     try:
         httpd.serve_forever()

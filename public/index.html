@@ -3,21 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>System Monitor</title>
+    <title>SOHO Blackwell Control Panel</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>System Monitor</h1>
+            <h1>SOHO Blackwell Control Panel</h1>
             <div class="status">
                 <span class="dot"></span>
                 <span id="connection-status">Connecting...</span>
             </div>
         </header>
 
-        <main class="grid">
+        <div class="system-stats-section collapsible-section" style="margin-bottom: 2rem; background: var(--card-bg); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border-color);">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer; margin-bottom: 1rem;">
+                <div>
+                    <h2 style="margin: 0;">System Statistics</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; margin-bottom: 0;">Live hardware and OS metrics.</p>
+                </div>
+                <button class="minimize-btn" style="background:none; border:none; color:var(--text-color); cursor:pointer; padding: 0.5rem;">
+                    <svg class="min-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                </button>
+            </div>
+            <div class="section-content">
+                <main class="grid" style="margin-top: 0;">
             <div class="card">
                 <div class="card-header">
                     <h2>CPU Load</h2>
@@ -102,16 +113,131 @@
                 </div>
                 <div class="value text-value" id="os-val">-</div>
             </div>
-        </main>
+                </main>
+            </div>
+        </div>
 
-        <div class="ports-section">
-            <div class="ports-header">
-                <h2>Open Ports & Services</h2>
-                <div class="ports-controls">
+        <div class="template-upload-section collapsible-section" style="margin-bottom: 2rem; background: var(--card-bg); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border-color);">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer; margin-bottom: 1rem;">
+                <div>
+                    <h2 style="margin: 0;">ComfyUI Templates <span id="templates-count-badge" style="font-size: 0.9rem; font-weight: normal; color: var(--text-muted);"></span></h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; margin-bottom: 0;">Manage and publish .json template files.</p>
+                </div>
+                <button class="minimize-btn" style="background:none; border:none; color:var(--text-color); cursor:pointer; padding: 0.5rem;">
+                    <svg class="min-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                </button>
+            </div>
+            <div class="section-content">
+                
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+                    <input type="text" id="template-filter" placeholder="Filter templates..." style="background: var(--bg-color); color: var(--text-color); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); flex-grow: 1; max-width: 300px;">
+                    <button id="refresh-templates-btn" style="background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">Refresh</button>
+                    
+                    <label style="display: flex; align-items: center; gap: 0.5rem; margin-left: auto; cursor: pointer;">
+                        <input type="checkbox" id="flag-template-removal-toggle" style="cursor: pointer;">
+                        Flag for removal
+                    </label>
+                    <button id="queue-template-removal-btn" style="display: none; background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600;">Queue for Deletion</button>
+                </div>
+
+                <div class="table-container" style="max-height: 250px; overflow-y: auto; margin-bottom: 1.5rem; background: var(--bg-color); border-radius: 6px;">
+                    <table class="ports-table" style="width: 100%; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: var(--bg-color); box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                            <tr>
+                                <th id="th-template-checkbox" style="padding: 0.5rem; width: 40px; display: none;"></th>
+                                <th style="padding: 0.5rem; text-align: left;">Filename</th>
+                                <th style="padding: 0.5rem; text-align: right;">Size</th>
+                            </tr>
+                        </thead>
+                        <tbody id="templates-body">
+                            <tr><td colspan="3" style="text-align:center; padding: 1rem; color:var(--text-muted);">Loading templates...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="upload-controls" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                    <div>
+                        <label for="json-file" style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500;">Template File (.json)</label>
+                        <input type="file" id="json-file" accept=".json" style="background: var(--bg-color); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-color);">
+                    </div>
+                    <div>
+                        <label for="image-file" style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500;">Preview Image (.jpg, Optional)</label>
+                        <input type="file" id="image-file" accept=".jpg,.jpeg" style="background: var(--bg-color); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-color);">
+                    </div>
+                    <button id="upload-btn" style="background: var(--accent-color, #3b82f6); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: opacity 0.2s;">Publish</button>
+                </div>
+                <div id="upload-status" style="margin-top: 1rem; font-size: 0.9rem;"></div>
+            </div>
+        </div>
+
+        <div class="models-browser-section collapsible-section" style="margin-bottom: 2rem; background: var(--card-bg); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border-color);">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer; margin-bottom: 1rem;">
+                <div>
+                    <h2 style="margin: 0;">ComfyUI Models Browser <span id="models-disk-usage" style="font-size: 0.9rem; font-weight: normal; color: var(--text-muted);"></span></h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; margin-bottom: 0;">Browse and upload model files.</p>
+                </div>
+                <button class="minimize-btn" style="background:none; border:none; color:var(--text-color); cursor:pointer; padding: 0.5rem;">
+                    <svg class="min-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                </button>
+            </div>
+            <div class="section-content">
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+                    <select id="model-folder-select" style="background: var(--bg-color); color: var(--text-color); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); flex-grow: 1; max-width: 300px;">
+                        <option value="">Select a folder...</option>
+                    </select>
+                    <button id="refresh-models-btn" style="background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">Refresh</button>
+                    
+                    <label style="display: flex; align-items: center; gap: 0.5rem; margin-left: auto; cursor: pointer;">
+                        <input type="checkbox" id="flag-removal-toggle" style="cursor: pointer;">
+                        Flag for removal
+                    </label>
+                    <button id="copy-paths-btn" style="display: none; background: #6b7280; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600;">Copy Paths</button>
+                    <button id="send-removal-btn" style="display: none; background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600;">Queue for Deletion</button>
+                </div>
+                
+                <div class="table-container" style="max-height: 250px; overflow-y: auto; margin-bottom: 1.5rem; background: var(--bg-color); border-radius: 6px;">
+                    <table class="ports-table" style="width: 100%; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: var(--bg-color); box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                            <tr>
+                                <th id="th-checkbox" style="padding: 0.5rem; width: 40px; display: none;"></th>
+                                <th style="padding: 0.5rem; text-align: left;">Filename</th>
+                                <th style="padding: 0.5rem; text-align: right;">Size</th>
+                            </tr>
+                        </thead>
+                        <tbody id="models-body">
+                            <tr><td colspan="3" style="text-align:center; padding: 1rem; color:var(--text-muted);">Select a folder to view files</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="upload-controls" style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                    <div style="flex-grow: 1; max-width: 400px;">
+                        <label for="new-model-file" style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; font-weight: 500;">Upload New Model</label>
+                        <input type="file" id="new-model-file" style="width: 100%; background: var(--bg-color); padding: 0.5rem; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-color);">
+                    </div>
+                    <button id="upload-model-btn" style="background: var(--accent-color, #3b82f6); color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: 600; transition: opacity 0.2s;" disabled>Upload to Folder</button>
+                </div>
+                <div id="model-upload-status" style="margin-top: 1rem; font-size: 0.9rem;"></div>
+            </div>
+        </div>
+
+        
+
+        <div class="ports-section collapsible-section" style="margin-bottom: 2rem; background: var(--card-bg); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border-color);">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer; margin-bottom: 1rem;">
+                <div>
+                    <h2 style="margin: 0;">Open Ports & Services</h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; margin-bottom: 0;">Active network connections on this machine.</p>
+                </div>
+                <button class="minimize-btn" style="background:none; border:none; color:var(--text-color); cursor:pointer; padding: 0.5rem;">
+                    <svg class="min-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                </button>
+            </div>
+            <div class="section-content">
+                <div class="ports-controls" style="margin-bottom: 1rem;">
                     <input type="text" id="ports-filter" placeholder="Filter by port, app, or status...">
                     <span class="badge" id="ports-count">0 listening</span>
                 </div>
-            </div>
             <div class="table-container">
                 <table class="ports-table">
                     <thead>
@@ -126,6 +252,7 @@
                         <!-- Port rows injected here -->
                     </tbody>
                 </table>
+            </div>
             </div>
         </div>
     </div>
