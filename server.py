@@ -447,15 +447,10 @@ if __name__ == '__main__':
                 match = re.search(r'pid=(\d+)', output)
                 if match:
                     pid = match.group(1)
-                    choice = input(f"Process {pid} is using port {PORT}. Do you want to kill it? (y/N): ")
-                    if choice.lower() == 'y':
-                        os.kill(int(pid), 9)
-                        print(f"Killed process {pid}. Starting server...")
-                        time.sleep(1)
-                        httpd = ThreadingHTTPServer(server_address, MonitorHandler)
-                    else:
-                        print("Exiting.")
-                        exit(1)
+                    print(f"Process {pid} is using port {PORT}. Automatically killing it...")
+                    os.kill(int(pid), 9)
+                    time.sleep(1)
+                    httpd = ThreadingHTTPServer(server_address, MonitorHandler)
                 else:
                     print("Could not determine which process is using the port. Exiting.")
                     exit(1)
@@ -465,7 +460,7 @@ if __name__ == '__main__':
         else:
             raise
 
-    print(f"System monitor running on port {PORT}")
+    print(f"System monitor running at http://127.0.0.1:{PORT}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

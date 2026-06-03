@@ -1,0 +1,9 @@
+{
+  "title": "Blackwell Control Panel",
+  "description": "Control panel for Blackwell.",
+  "icon": "icon.png",
+  "menu": "pinokio.js",
+  "plugin": {
+    "menu": []
+  }
+}
