@@ -247,6 +247,27 @@ class MonitorHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(files).encode('utf-8'))
             return
 
+        if self.path == '/list_hidden_files':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            
+            target_dirs = [
+                "/opt/Pinokio/build/api/comfy.git/app/custom_nodes",
+                "/Volumes/mnt/projects/rosey/reference/comfyui/blackwell_rtx_6000/custom_nodes"
+            ]
+            files = []
+            for target_dir in target_dirs:
+                if os.path.exists(target_dir):
+                    for root, dirs, filenames in os.walk(target_dir):
+                        for f in filenames:
+                            if f.startswith('._') or f == '.DS_Store':
+                                p = os.path.join(root, f)
+                                files.append({"name": f, "path": p, "size": os.path.getsize(p)})
+            files.sort(key=lambda x: x["path"])
+            self.wfile.write(json.dumps(files).encode('utf-8'))
+            return
+
         super().do_GET()
 
     def do_POST(self):
@@ -320,14 +341,18 @@ class MonitorHandler(http.server.SimpleHTTPRequestHandler):
                 elif type_val == 'template':
                     target_dir = "/Volumes/mnt/projects/rosey/reference/comfyui/blackwell_rtx_6000/custom_nodes/comfyui_soho_nodes/example_workflows"
                     base_dir = target_dir
+                elif type_val == 'hidden_file':
+                    pass
                 else:
                     raise ValueError("Invalid type")
                     
-                if not os.path.abspath(target_dir).startswith(os.path.abspath(base_dir)):
+                if type_val != 'hidden_file' and not os.path.abspath(target_dir).startswith(os.path.abspath(base_dir)):
                     raise ValueError("Invalid folder path")
 
                 if type_val == 'template':
                     script_path = "/opt/Pinokio/build/api/comfy.git/PENDING_TEMPLATE_DELETIONS.sh"
+                elif type_val == 'hidden_file':
+                    script_path = "/opt/Pinokio/build/api/comfy.git/PENDING_HIDDEN_DELETIONS.sh"
                 else:
                     script_path = "/opt/Pinokio/build/api/comfy.git/PENDING_MODEL_DELETIONS.sh"
                 
@@ -338,7 +363,17 @@ class MonitorHandler(http.server.SimpleHTTPRequestHandler):
 
                 with open(script_path, 'a', encoding='utf-8') as f:
                     for filename in files:
-                        safe_path = os.path.join(target_dir, filename)
+                        if type_val == 'hidden_file':
+                            safe_path = os.path.abspath(filename)
+                            # Ensure it's in one of the allowed directories
+                            allowed_dirs = [
+                                "/opt/Pinokio/build/api/comfy.git/app/custom_nodes",
+                                "/Volumes/mnt/projects/rosey/reference/comfyui/blackwell_rtx_6000/custom_nodes"
+                            ]
+                            if not any(safe_path.startswith(os.path.abspath(d)) for d in allowed_dirs):
+                                continue
+                        else:
+                            safe_path = os.path.join(target_dir, filename)
                         f.write(f'rm "{safe_path}"\n')
 
                 self.send_response(200)
@@ -436,7 +471,7 @@ class ThreadingHTTPServer(socketserver.ThreadingMixIn, http.server.HTTPServer):
     pass
 
 if __name__ == '__main__':
-    server_address = ('', PORT)
+    server_address = ('0.0.0.0', PORT)
     try:
         httpd = ThreadingHTTPServer(server_address, MonitorHandler)
     except OSError as e:
@@ -460,7 +495,7 @@ if __name__ == '__main__':
         else:
             raise
 
-    print(f"System monitor running at http://127.0.0.1:{PORT}")
+    print(f"System monitor running at http://0.0.0.0:{PORT}")
     try:
         httpd.serve_forever()
     except KeyboardInterrupt:

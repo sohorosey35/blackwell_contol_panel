@@ -752,3 +752,153 @@ queueTemplateRemovalBtn.addEventListener('click', async () => {
 
 // Initialize templates
 fetchTemplates();
+
+// ----------------------------------------------------
+// Mac Hidden Files Scanner Logic
+// ----------------------------------------------------
+const hiddenFilesBody = document.getElementById('hidden-files-body');
+const refreshHiddenFilesBtn = document.getElementById('refresh-hidden-files-btn');
+const flagHiddenRemovalToggle = document.getElementById('flag-hidden-removal-toggle');
+const checkAllHiddenBtn = document.getElementById('check-all-hidden-btn');
+const queueHiddenRemovalBtn = document.getElementById('queue-hidden-removal-btn');
+const thHiddenCheckbox = document.getElementById('th-hidden-checkbox');
+const hiddenFilesCount = document.getElementById('hidden-files-count');
+
+let allHiddenFiles = [];
+
+async function fetchHiddenFiles() {
+    hiddenFilesBody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 1rem;">Scanning for hidden files...</td></tr>';
+    refreshHiddenFilesBtn.disabled = true;
+    try {
+        const res = await fetch('/list_hidden_files');
+        if (!res.ok) throw new Error('Failed to fetch hidden files');
+        allHiddenFiles = await res.json();
+        if (hiddenFilesCount) {
+            hiddenFilesCount.textContent = `(${allHiddenFiles.length} files found)`;
+        }
+        renderHiddenFiles();
+    } catch (e) {
+        console.error(e);
+        hiddenFilesBody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 1rem; color:red;">Error scanning hidden files</td></tr>';
+    } finally {
+        refreshHiddenFilesBtn.disabled = false;
+    }
+}
+
+function renderHiddenFiles() {
+    hiddenFilesBody.innerHTML = '';
+    
+    if (allHiddenFiles.length === 0) {
+        hiddenFilesBody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 1rem; color:var(--text-muted);">No ._* or .DS_Store files found</td></tr>';
+        return;
+    }
+    
+    const showCb = flagHiddenRemovalToggle.checked;
+    
+    allHiddenFiles.forEach(file => {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border-color)';
+        
+        const tdCb = document.createElement('td');
+        tdCb.className = 'hidden-cb-cell';
+        tdCb.style.padding = '0.5rem';
+        tdCb.style.display = showCb ? 'table-cell' : 'none';
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.className = 'hidden-checkbox';
+        cb.value = file.path;
+        tdCb.appendChild(cb);
+        
+        const tdPath = document.createElement('td');
+        tdPath.style.padding = '0.5rem';
+        tdPath.style.wordBreak = 'break-all';
+        tdPath.style.fontSize = '0.85rem';
+        tdPath.textContent = file.path;
+        
+        const tdSize = document.createElement('td');
+        tdSize.style.padding = '0.5rem';
+        tdSize.style.textAlign = 'right';
+        tdSize.style.color = 'var(--text-muted)';
+        
+        let sizeStr = formatBytesToGB(file.size) + ' GB';
+        if (file.size < 1024*1024*1024) {
+            sizeStr = (file.size / (1024*1024)).toFixed(2) + ' MB';
+        }
+        if (file.size < 1024*1024) {
+            sizeStr = (file.size / 1024).toFixed(2) + ' KB';
+        }
+        if (file.size < 1024) {
+            sizeStr = file.size + ' B';
+        }
+        tdSize.textContent = sizeStr;
+        
+        tr.appendChild(tdCb);
+        tr.appendChild(tdPath);
+        tr.appendChild(tdSize);
+        hiddenFilesBody.appendChild(tr);
+    });
+}
+
+refreshHiddenFilesBtn.addEventListener('click', fetchHiddenFiles);
+
+flagHiddenRemovalToggle.addEventListener('change', () => {
+    const show = flagHiddenRemovalToggle.checked;
+    queueHiddenRemovalBtn.style.display = show ? 'block' : 'none';
+    checkAllHiddenBtn.style.display = show ? 'block' : 'none';
+    thHiddenCheckbox.style.display = show ? 'table-cell' : 'none';
+    document.querySelectorAll('.hidden-cb-cell').forEach(td => {
+        td.style.display = show ? 'table-cell' : 'none';
+    });
+});
+
+checkAllHiddenBtn.addEventListener('click', () => {
+    const checkboxes = document.querySelectorAll('.hidden-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => {
+        cb.checked = !allChecked;
+    });
+});
+
+queueHiddenRemovalBtn.addEventListener('click', async () => {
+    const checked = document.querySelectorAll('.hidden-checkbox:checked');
+    if (checked.length === 0) {
+        alert('No files selected for removal.');
+        return;
+    }
+    
+    let files = [];
+    checked.forEach(cb => files.push(cb.value));
+    
+    queueHiddenRemovalBtn.disabled = true;
+    queueHiddenRemovalBtn.textContent = 'Queueing...';
+    
+    try {
+        const res = await fetch('/queue_deletion', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'hidden_file',
+                files: files
+            })
+        });
+        
+        const contentType = res.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Server returned invalid response.");
+        }
+        
+        const result = await res.json();
+        if (res.ok && result.success) {
+            alert('Hidden files queued for deletion. The PENDING_HIDDEN_DELETIONS.sh script has been updated.');
+            fetchHiddenFiles();
+        } else {
+            alert('Failed: ' + (result.error || 'Unknown error'));
+        }
+    } catch (e) {
+        console.error(e);
+        alert('Error: ' + e.message);
+    } finally {
+        queueHiddenRemovalBtn.disabled = false;
+        queueHiddenRemovalBtn.textContent = 'Queue for Deletion';
+    }
+});

@@ -223,6 +223,45 @@
 
         
 
+        <div class="hidden-files-section collapsible-section" style="margin-bottom: 2rem; background: var(--card-bg); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border-color);">
+            <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer; margin-bottom: 1rem;">
+                <div>
+                    <h2 style="margin: 0;">Mac Hidden Files Scanner <span id="hidden-files-count" style="font-size: 0.9rem; font-weight: normal; color: var(--text-muted);"></span></h2>
+                    <p style="color: var(--text-muted); font-size: 0.9rem; margin-top: 0.5rem; margin-bottom: 0;">Find and flag useless ._* and .DS_Store files in custom nodes.</p>
+                </div>
+                <button class="minimize-btn" style="background:none; border:none; color:var(--text-color); cursor:pointer; padding: 0.5rem;">
+                    <svg class="min-icon" viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                </button>
+            </div>
+            <div class="section-content">
+                <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+                    <button id="refresh-hidden-files-btn" style="background: var(--bg-color); color: var(--text-color); border: 1px solid var(--border-color); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer;">Scan Files</button>
+                    
+                    <label style="display: flex; align-items: center; gap: 0.5rem; margin-left: auto; cursor: pointer;">
+                        <input type="checkbox" id="flag-hidden-removal-toggle" style="cursor: pointer;">
+                        Flag for removal
+                    </label>
+                    <button id="check-all-hidden-btn" style="display: none; background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600;">Check All</button>
+                    <button id="queue-hidden-removal-btn" style="display: none; background: #ef4444; color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-weight: 600;">Queue for Deletion</button>
+                </div>
+
+                <div class="table-container" style="max-height: 250px; overflow-y: auto; margin-bottom: 1.5rem; background: var(--bg-color); border-radius: 6px;">
+                    <table class="ports-table" style="width: 100%; border-collapse: collapse;">
+                        <thead style="position: sticky; top: 0; background: var(--bg-color); box-shadow: 0 1px 2px rgba(0,0,0,0.1);">
+                            <tr>
+                                <th id="th-hidden-checkbox" style="padding: 0.5rem; width: 40px; display: none;"></th>
+                                <th style="padding: 0.5rem; text-align: left;">Path</th>
+                                <th style="padding: 0.5rem; text-align: right;">Size</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hidden-files-body">
+                            <tr><td colspan="3" style="text-align:center; padding: 1rem; color:var(--text-muted);">Click Scan Files to find hidden files</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <div class="ports-section collapsible-section" style="margin-bottom: 2rem; background: var(--card-bg); border-radius: 12px; padding: 1.5rem; border: 1px solid var(--border-color);">
             <div class="section-header" style="display: flex; justify-content: space-between; align-items: flex-start; cursor: pointer; margin-bottom: 1rem;">
                 <div>
