@@ -254,7 +254,8 @@ class MonitorHandler(http.server.SimpleHTTPRequestHandler):
             
             target_dirs = [
                 "/opt/Pinokio/build/api/comfy.git/app/custom_nodes",
-                "/Volumes/mnt/projects/rosey/reference/comfyui/blackwell_rtx_6000/custom_nodes"
+                "/Volumes/mnt/projects/rosey/reference/comfyui/blackwell_rtx_6000/custom_nodes",
+                "/opt/Pinokio/build/api/comfy.git/app/models"
             ]
             files = []
             for target_dir in target_dirs:
@@ -368,7 +369,8 @@ class MonitorHandler(http.server.SimpleHTTPRequestHandler):
                             # Ensure it's in one of the allowed directories
                             allowed_dirs = [
                                 "/opt/Pinokio/build/api/comfy.git/app/custom_nodes",
-                                "/Volumes/mnt/projects/rosey/reference/comfyui/blackwell_rtx_6000/custom_nodes"
+                                "/Volumes/mnt/projects/rosey/reference/comfyui/blackwell_rtx_6000/custom_nodes",
+                                "/opt/Pinokio/build/api/comfy.git/app/models"
                             ]
                             if not any(safe_path.startswith(os.path.abspath(d)) for d in allowed_dirs):
                                 continue
