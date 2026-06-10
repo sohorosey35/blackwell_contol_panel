@@ -260,7 +260,7 @@ class MonitorHandler(http.server.SimpleHTTPRequestHandler):
             files = []
             for target_dir in target_dirs:
                 if os.path.exists(target_dir):
-                    for root, dirs, filenames in os.walk(target_dir):
+                    for root, dirs, filenames in os.walk(target_dir, followlinks=True):
                         for f in filenames:
                             if f.startswith('._') or f == '.DS_Store':
                                 p = os.path.join(root, f)
